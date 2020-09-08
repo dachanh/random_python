@@ -1,11 +1,18 @@
 import os
 import redis  
+import yaml
+from flask.cli import FlaskGroup
 from rq import Worker , Queue , Connection 
-listen = ['default']
-conn_redis = redis.Redis()
 
+with open('./config.yaml','r') as f:
+    config = yaml.load(f,Loader=yaml.SafeLoader)
 
-if __name__ == '__main__':
-    with Connection(conn_redis):
-        worker =  Worker(list(map(Queue,listen)))
+@cli.command("run_worker")
+def run_worker():
+    redis_connection = redis.from_url(config['REDIS_URL'])
+    with Connection(redis_connection):
+        worker = Worker(config['QUEUES'])
         worker.work()
+
+if __name__ == "__main__":
+    cli()
