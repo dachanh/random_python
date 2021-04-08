@@ -15,6 +15,10 @@ my_parser.add_argument('--img_dir',
 args = my_parser.parse_args()
 folder = args.img_dir
 queue = queue.Queue()
+
+def is_img(img):
+    return not os.path.splitext(img)[1] in ['.ini','.zip','.ZIP','.json','.docx','.rar'] 
+
 class ThreadRequest(threading.Thread):
     def __init__(self,queue,host):
         threading.Thread.__init__(self)
@@ -32,22 +36,28 @@ class ThreadRequest(threading.Thread):
                 with open(json_file,'w',encoding='utf8') as f:
                     json.dump(data.json(),f,ensure_ascii=False,indent=5)
             except Exception as e:
-                print(e)
+                print(namefile,e)
             self.queue.task_done()
 
 img_list = []
-host = 'http://ocr.dtroute.com/idcard?debug=True'
+host = 'http://172.16.5.100:8081/cv/api/v1/ocr/idcard'
 for r,d,f in os.walk(folder):
     for file in f:
         img_list.append(os.path.join(r,file))
+img_list = list(filter(is_img,img_list))
 start = time.time()
-for i in range(5):
+print(len(img_list))
+for i in range(3):
     t = ThreadRequest(queue,host)
     t.setDaemon(True)
     t.start()
 
-for file in img_list:
+for index , file in enumerate(img_list):
+    print(index,file)
     queue.put(file)
-
-queue.join()
+try:
+    queue.join()
+except Exception as e :
+    print(e)
+    
 print(time.time()-start)

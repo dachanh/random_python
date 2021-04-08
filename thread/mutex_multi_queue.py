@@ -14,13 +14,14 @@ my_parser.add_argument('--img_dir',
                        metavar='img_dir',
                        type=str,
                        help='the path to list')
-
+def is_img(img):
+    return not os.path.splitext(img)[1] in ['.ini','.zip','.ZIP','.json','.docx','.rar'] 
 args = my_parser.parse_args()
 folder = args.img_dir
 in_queue = queue.Queue()
 out_queue = queue.Queue()
 img_list = []
-host = 'http://ocr.dtroute.com/idcard?debug=True'
+host = 'http://ocr.dtroute.com/idcard'
 
 class ThreadRequest(threading.Thread):
     def __init__(self,in_queue,out_queue,host):
@@ -67,11 +68,13 @@ start = time.time()
 for r,d,f in os.walk(folder):
     for file in f:
         img_list.append(os.path.join(r,file))
+img_list = list(filter(is_img,img_list))
+print(len(img_list))
 for it in img_list:
     in_queue.put(it)
 
 
-for it in range(10):
+for it in range(5):
     out_t = ThreadWrite(out_queue)
     out_t.setDaemon(True)
     out_t.start()
