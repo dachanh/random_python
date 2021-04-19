@@ -2,9 +2,12 @@ import os
 import cv2
 import sys 
 import logging
+import tempfile
+import numpy as np
 import confluent_kafka
 from PIL import Image
 from io import BytesIO
+from shutil import copy2 as cp 
 from threading import Thread
 from confluent_kafka import DeserializingConsumer
 from confluent_kafka.schema_registry.json_schema import JSONDeserializer
@@ -13,10 +16,11 @@ from confluent_kafka.serialization import StringDeserializer
 
 
 class Image_Type(object):
-    def __init__(self,height,width,image):
+    def __init__(self,height,width,image ,extension):
         self.height = height 
         self.width = width
         self.image = image
+        self.extension = extension
 
 
 def dict_to_image(obj,ctx):
@@ -25,7 +29,8 @@ def dict_to_image(obj,ctx):
         return None 
     return Image_Type(height = obj['height'],
                         width =  obj['width'],
-                            image= obj['image']) 
+                            image=obj['image'],
+                            extension = obj['extension']) 
 
 
 
@@ -38,7 +43,6 @@ conf = {
     'session.timeout.ms':6000
 }
 
-
 schema_str = """
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -48,7 +52,7 @@ schema_str = """
     "properties": {
     "height": {
         "description": "height of image",
-        "type": "int",
+        "type": "number",
         "exclusiveMinimum": 1
     },
     "width": {
@@ -58,13 +62,16 @@ schema_str = """
     },
     "image": {
         "description": "the image is converted to byte datatype",
-        "type": "byte"
+        "type": "array"
+    },
+    "extension": {
+        "description": "",
+        "type" : "string"
     }
     },
-    "required": [ "height", "width", "image" ]
+    "required": [ "height", "width", "image" ,"extension"]
 }
 """
-
 
 json_deserializer = JSONDeserializer(schema_str,
                                         from_dict=dict_to_image)
@@ -81,20 +88,30 @@ consumer = DeserializingConsumer(conf)
 
 consumer.subscribe([topic_subcribe])
 
-try :
-    while True:
-        message =  consumer.poll(timeout=0.1)
-        if message is None:
-            continue
-        if message.error():
-            raise KafkaException(message.error())
-        else:
-            image_obj = message.value()
-            print("height : "+str(image_obj.height)+", width : "+str(image_obj.width) )
-            stream = BytesIO(image_obj.image) 
-            image = Image.open(stream).convert("RGBA")
-            cv2.imwrite("test.jpg",image)
-            stream.close()
-except Exception as e:
-    print(e)
+while True:
+    message =  consumer.poll(timeout=0.0001)
+    if message is None:
+        continue
+    if message.error():
+        raise KafkaException(message.error())
+    else:
+        req = message.value()
+        print(req.image)
+        # print(req.image.encode())
+        # print(type(req.image.encode()))
+        # req.image =  BytesIO(req.image.encode())
+        # print(req.image)
+        # print(type(req.image))
+        # print(req.image.read())
+        # data = np.load(req.image,allow_pickle=True)
+        # print(data)
+        # with open('temp.jpg','wb') as f:
+        #     f.write(req.image.getbuffer())
+        # file_bytes = np.asarray(bytearray(req.image.getbuffer()), dtype=np.uint8)
+        # img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        # print(img.shape)
+        # temp = tempfile.NamedTemporaryFile(mode='wb' , prefix="tmp_",suffix=req.extension, delete=True)
+        # with temp as write_tmp:
+        #     write_tmp.write(req.image.getbuffer())
+        #     cp(write_tmp.name,'./')
 consumer.close()

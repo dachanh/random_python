@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+
+package tutorial;
+
+
+
+message Person{
+	required    string name =  1;
+	required    int64 favor = 2;
+	required    string favoriate = 3;
+}
